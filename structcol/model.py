@@ -55,6 +55,7 @@ def reflection(n_particle, n_matrix, n_medium, wavelen, radius, volume_fraction,
                structure_type='glass',
                form_type='sphere',
                maxwell_garnett=False):
+    
     """
     Calculate fraction of light reflected from an amorphous colloidal
     suspension (a "photonic glass").
@@ -177,6 +178,7 @@ def reflection(n_particle, n_matrix, n_medium, wavelen, radius, volume_fraction,
     Beetles” Physical Review E 90, no. 6 (2014): 62302.
     doi:10.1103/PhysRevE.90.062302
     """
+    
     # radius and radius2 should be in the same units (for polydisperse samples)
     if radius2 is not None:
         radius2 = radius2.to(radius.units)
@@ -197,7 +199,6 @@ def reflection(n_particle, n_matrix, n_medium, wavelen, radius, volume_fraction,
     term2 = 1/(radius2.max()**3 + radius.max()**3 * concentration[0]/concentration[1])
     rho = 3.0 * volume_fraction / (4.0 * np.pi) * (term1 + term2)
     
-
     # check that the number of indices and radii is the same
     if len(np.atleast_1d(n_particle)) != len(np.atleast_1d(radius)):
        raise ValueError('Arrays of indices and radii must be the same length')
@@ -349,13 +350,6 @@ def reflection(n_particle, n_matrix, n_medium, wavelen, radius, volume_fraction,
         # Calculate the transport length for unpolarized light (see eq. 5 of 
         # Kaplan, Dinsmore, Yodh, Pine, PRE 50(6): 4827, 1994)
         transport_length = 1/(1.0-asymmetry_parameter)/rho/cscat_total_surf  # TODO is this cscat or cext_tot?
-
-        
-#        factor = np.cos(angles_tot)
-#        asymmetry_unpolarized = mie.integrate_intensity_complex_medium(diff_cs_total[0]*factor, 
-#                                                           diff_cs_total[1]*factor, 
-#                                                           thickness, angles_tot, k)[0]  
-#        asymmetry_parameter = asymmetry_unpolarized/cscat_total
     
     # if there is no absorption in the system
     else:
@@ -383,7 +377,7 @@ def reflection(n_particle, n_matrix, n_medium, wavelen, radius, volume_fraction,
         # Kaplan, Dinsmore, Yodh, Pine, PRE 50(6): 4827, 1994)
         transport_length = 1/(1.0-asymmetry_parameter)/rho/cscat_total  # TODO is this cscat or cext_tot?
 
-    cext_total = cscat_total + cabs_total
+    cext_total = cscat_total.to('um**2') + cabs_total.to('um**2')
     
     # now eq. 6 for the total reflection
     if thickness is None:
@@ -399,6 +393,7 @@ def reflection(n_particle, n_matrix, n_medium, wavelen, radius, volume_fraction,
     # transmission coefficients for the two polarization channels before
     # integrating. However, we do average the total cross section to normalize
     # the reflection cross-sections (that is, we use sigma_total rather than
+    # sigma_total_par or sigma_total_perp).
     reflected_par = t_medium_sample[0] * cscat_detected_par/cext_total * \
                         factor + r_medium_sample[0]  
     reflected_perp = t_medium_sample[1] * cscat_detected_perp/cext_total * \
@@ -412,6 +407,7 @@ def reflection(n_particle, n_matrix, n_medium, wavelen, radius, volume_fraction,
     
 
 @ureg.check('[]', '[]', '[]', '[]')
+
 def differential_cross_section(m, x, angles, volume_fraction,
                                structure_type = 'glass', form_type = 'sphere', 
                                diameters=None, concentration=None, pdi=None, 
@@ -469,6 +465,13 @@ def differential_cross_section(m, x, angles, volume_fraction,
         parallel and perpendicular components of the differential scattering
         cross section.
     """     
+###################    
+    if isinstance(k, Quantity):
+        k = k.to('1/um')
+    if isinstance(distance, Quantity):
+        distance = distance.to('um')
+####################
+        
     # calculate form factor    
     if form_type == 'sphere': 
         if k is not None and np.abs(k.imag.magnitude) > 0.:
@@ -809,6 +812,8 @@ def size_distribution(diameter_range, mean, t):
     else:
         std_dev = diameter_range / np.sqrt(t+1)
         distr = np.exp(-(diameter_range - mean)**2 / (2 * std_dev**2)) / np.sqrt(2*np.pi*std_dev**2)
+        norm = np.trapz(distr, x=diameter_range)
+        distr = distr/norm
     return(distr)
             
             
@@ -820,9 +825,11 @@ def _integrate_cross_section(cross_section, factor, angles,
     """
     # integrand
     integrand = cross_section * factor * np.sin(angles)
+    
     # np.trapz does not preserve units, so need to state explicitly that we are
     # in the same units as the integrand
     integral = np.trapz(integrand, x=angles) * integrand.units
+    
     # multiply by 2*pi to account for integral over phi
     sigma = azi_angle_range * integral
     #sigma = 2 * np.pi * integral
