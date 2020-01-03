@@ -651,9 +651,9 @@ def test_reflection_polydispersity_with_absorption():
                                                form_type='polydisperse',
                                                thickness=thickness)
     
-    #assert_array_almost_equal(refl, refl2, decimal=5)
+    assert_array_almost_equal(refl, refl2, decimal=9)
     assert_array_almost_equal(g, g2, decimal=9)
-    assert_array_almost_equal(lstar.to('mm'), lstar2.to('mm'), decimal=5)
+    assert_array_almost_equal(lstar.to('mm'), lstar2.to('mm'), decimal=9)
 
     # Outputs before refactoring structcol
     refl_before = 0.020910087489548684 #0.020791487299024698
@@ -737,8 +737,8 @@ def test_reflection_polydispersity_with_absorption():
     lstar5_before = 0.01163694691#0.013713468137103935 #0.013809880819376879 #0.013405648948885825
     lstar6_before = 0.011668837507 #0.013751049358954354 #0.013847726256293521 #0.013442386605693767
     
-    #assert_array_almost_equal(refl5_before, refl5.magnitude, decimal=12)
-    #assert_array_almost_equal(refl6_before, refl6.magnitude, decimal=12)
+    #assert_array_almost_equal(refl5_before, refl5.magnitude, decimal=1)
+    #assert_array_almost_equal(refl6_before, refl6.magnitude, decimal=1)
     #assert_array_almost_equal(g5_before, g5.magnitude, decimal=12)
     #assert_array_almost_equal(g6_before, g6.magnitude, decimal=12)
     #assert_array_almost_equal(lstar5_before, lstar5.to('mm').magnitude, decimal=12)
