@@ -464,13 +464,11 @@ def differential_cross_section(m, x, angles, volume_fraction,
     float (2-tuple):
         parallel and perpendicular components of the differential scattering
         cross section.
-    """     
-###################    
+    """       
     if isinstance(k, Quantity):
         k = k.to('1/um')
     if isinstance(distance, Quantity):
         distance = distance.to('um')
-####################
         
     # calculate form factor    
     if form_type == 'sphere': 

@@ -1951,6 +1951,10 @@ def calc_scat(radius, n_particle, n_sample, volume_fraction, wavelen,
     # if there is fine surface roughness, also calculate and return the scatt 
     # coeff from Mie theory
     if fine_roughness > 0.:
+        #n_matrix = sc.Quantity(1., '')
+        #m = index_ratio(n_particle, n_matrix)
+        #x = size_parameter(wavelen, n_matrix, radius)
+        #k = 2 * np.pi * n_matrix / wavelen  
         _, _, _, cscat_total_mie = phase_function(m, x, angles, volume_fraction, 
                                                   k, number_density, wavelen=wavelen, 
                                                   diameters=mean_diameters, 
@@ -2032,7 +2036,7 @@ def phase_function(m, x, angles, volume_fraction, k, number_density,
     if form_type=='polydisperse':
         distance = diameters/2
     else:
-        distance = diameters.max()/2 
+        distance = diameters.max()/2
 
     # If mie_theory = True, calculate the phase function for 1 particle 
     # using Mie theory (excluding the structure factor)
@@ -2073,7 +2077,9 @@ def phase_function(m, x, angles, volume_fraction, k, number_density,
         # to calculate the phase function when there is absorption, we  
         # use the far-field Mie solutions because the near field diff cross 
         # section behaves weirdly. To make sure we use the far-field 
-        # solutions, set k = None.                                               
+        # solutions, set k = None. This is okay because we only care about the 
+        # distribution of angles (meaning the shape of the phase function), not
+        # the magnitudes of the probabilities.                                            
         diff_cscat_par_ff, diff_cscat_perp_ff = \
             model.differential_cross_section(m, x, angles, volume_fraction,
                                              structure_type=structure_type,
