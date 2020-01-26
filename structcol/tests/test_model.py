@@ -745,37 +745,71 @@ def test_reflection_polydispersity_with_absorption():
     assert_array_almost_equal(lstar6_before, lstar6.to('mm').magnitude, decimal=4)
     
     # test that the reflectances are (almost) the same when using an 
-    # almost-non-absorbing vs an non-absorbing system
-    n_matrix2 = Quantity(1.0+1e-8j, '')
-    n_particle2 = Quantity(1.5+1e-8j, '')
+    # almost-non-absorbing vs an non-absorbing polydisperse system
+    ## When there is 1 mean diameter
+    n_matrix2 = Quantity(1.0+1e-20j, '')
+    n_particle2 = Quantity(1.5+1e-20j, '')
     radius2 = Quantity('150 nm')
-    
-    refl7, _, _, g7, lstar7 = model.reflection(n_particle.real, n_matrix.real, 
+    pdi2 = Quantity(np.array([0.33, 0.33]), '')
+    refl7, _, _, g7, lstar7 = model.reflection(n_particle2.real, n_matrix2.real, 
                                                n_medium, wavelength, radius, 
                                                volume_fraction, 
-                                               radius2 = radius2, 
+                                               radius2 = radius, 
                                                concentration = concentration, 
-                                               pdi = pdi, 
+                                               pdi = pdi2, 
                                                structure_type='polydisperse',
                                                form_type='polydisperse', 
                                                thickness=thickness)
     refl8, _, _, g8, lstar8 = model.reflection(n_particle2, n_matrix2, 
                                                n_medium, wavelength, radius, 
                                                volume_fraction, 
-                                               radius2 = radius2, 
+                                               radius2 = radius, 
                                                concentration = concentration, 
-                                               pdi = pdi, 
+                                               pdi = pdi2, 
                                                structure_type='polydisperse',
                                                form_type='polydisperse', 
                                                thickness=thickness)
-    #assert_array_almost_equal(refl7, refl8, decimal=3)
-    assert_array_almost_equal(g7, g8, decimal=2)
-    assert_array_almost_equal(lstar7.to('mm'), lstar8.to('mm'), decimal=4)
+    assert_array_almost_equal(refl7, refl8, decimal=15)
+    assert_array_almost_equal(g7, g8, decimal=15)
+    assert_array_almost_equal(lstar7.to('mm'), lstar8.to('mm'), decimal=15)
 
-
+    ## When there are 2 mean diameters
+    refl9, _, _, g9, lstar9 = model.reflection(n_particle2.real, n_matrix2.real, 
+                                               n_medium, wavelength, radius, 
+                                               volume_fraction, 
+                                               radius2 = radius2, 
+                                               concentration = concentration, 
+                                               pdi = pdi2, 
+                                               structure_type='polydisperse',
+                                               form_type='polydisperse', 
+                                               thickness=thickness)
+    refl10, _, _, g10, lstar10 = model.reflection(n_particle2, n_matrix2, 
+                                               n_medium, wavelength, radius, 
+                                               volume_fraction, 
+                                               radius2 = radius2, 
+                                               concentration = concentration, 
+                                               pdi = pdi2, 
+                                               structure_type='polydisperse',
+                                               form_type='polydisperse', 
+                                               thickness=thickness)
+    assert_array_almost_equal(refl9, refl10, decimal=3)
+    assert_array_almost_equal(g9, g10, decimal=2)
+    assert_array_almost_equal(lstar9.to('mm'), lstar10.to('mm'), decimal=4)
+    # TODO: we should be careful with this last test. Interestingly, the values 
+    # for refl9 and refl10 become incrasingly closer to each other when the pdi 
+    # becomes large (~33%). No bugs were found after a careful examination, so 
+    # this behavior might be related to how polydispersity is implemented for 
+    # binary mixtures. Currently in model.py we calculate the form factor using 
+    # distance = mean radii and then we integrate the differential cross section 
+    # at said mean radii. We then average the cross sections from each radius. 
+    # Potentially, using the mean radii to find the average polydisperse form 
+    # factor and cross section might be a better approximation to the real form 
+    # factor and cross section when the size distribution is closer to uniform 
+    # (less narrow). 
+    
 def test_g_transport_length():
-# test that the g and transport length do not depend on the thickness in the 
-# presence of absorption
+    # test that the g and transport length do not depend on the thickness in the 
+    # presence of absorption
     wavelength = Quantity(600, 'nm')
     volume_fraction = Quantity(0.55, '')
     radius = Quantity('100 nm')
@@ -784,8 +818,7 @@ def test_g_transport_length():
     n_particle = Quantity(1.5+0.0006j, '')
     thickness1 = Quantity('10 um')
     thickness2 = Quantity('100 um')
-    # test that the reflectance using only the form factor is the same using
-    # the polydisperse formula vs using Mie in the limit of monodispersity
+    
     _, _, _, g, lstar = model.reflection(n_particle, n_matrix, n_medium, 
                                             wavelength, radius, volume_fraction, 
                                             thickness=thickness1)
@@ -799,7 +832,7 @@ def test_g_transport_length():
     
     
 def test_reflection_throws_valueerror_for_polydisperse_core_shells(): 
-# test that a valueerror is raised when trying to run polydisperse core-shells                 
+    # test that a valueerror is raised when trying to run polydisperse core-shells                 
     with pytest.raises(ValueError):
         wavelength = Quantity(500, 'nm')
         volume_fraction = Quantity(0.5, '')
@@ -882,7 +915,7 @@ def test_reflection_throws_valueerror_for_polydisperse_core_shells():
                                             form_type=None, thickness=thickness) 
                                             
 def test_reflection_throws_valueerror_for_polydisperse_unspecified_parameters(): 
-# test that a valueerror is raised when trying to run polydisperse core-shells                 
+    # test that a valueerror is raised when trying to run polydisperse core-shells                 
     with pytest.raises(ValueError):
         wavelength = Quantity(500, 'nm')
         volume_fraction = Quantity(0.5, '')

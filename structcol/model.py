@@ -178,7 +178,7 @@ def reflection(n_particle, n_matrix, n_medium, wavelen, radius, volume_fraction,
     Beetles” Physical Review E 90, no. 6 (2014): 62302.
     doi:10.1103/PhysRevE.90.062302
     """
-    
+
     # radius and radius2 should be in the same units (for polydisperse samples)
     if radius2 is not None:
         radius2 = radius2.to(radius.units)
@@ -280,77 +280,114 @@ def reflection(n_particle, n_matrix, n_medium, wavelen, radius, volume_fraction,
                                           concentration=concentration, pdi=pdi)                                                                                                               
      
     # calculate the differential cross section in the detected range of angles  
-    # and in the total angles. We calculate it at a distance = thickness when 
-    # there is absorption in the system. Calculating at the surface of the
-    # particle leads to strange near field effects when the calculation is done 
-    # not over all angles but only a subset. Choosing an arbitrary distance is 
-    # OK because we care about the ratio of differential to total cross section
-    # for the reflectance, but it is not OK for the calculation of asymmetry 
-    # parameter and transport length, both of which use the total cros section.
+    # and in the total angles. We calculate it at a distance = radius when 
+    # there is absorption in the system, making sure that near_fields are False
+    # (which is the default). Including near-fields leads to strange effects 
+    # when the calculation is done not over all angles but only a subset. 
     # When there isn't absorption, the distance does not enter the calculation. 
+    if form_type=='polydisperse':
+        distance = mean_diameters/2
+    else:
+        distance = mean_diameters.max()/2
+    
     diff_cs_detected = differential_cross_section(m, x, angles, volume_fraction,
                                                   structure_type=structure_type, 
                                                   form_type=form_type, 
                                                   diameters=mean_diameters,
                                                   concentration=concentration,
                                                   pdi=pdi, wavelen=wavelen, 
-                                                  n_matrix=n_sample, k=k, distance=thickness) 
+                                                  n_matrix=n_sample, k=k, distance=distance) 
     diff_cs_total = differential_cross_section(m, x, angles_tot, volume_fraction,
                                                structure_type=structure_type, 
                                                form_type=form_type,
                                                diameters=mean_diameters,
                                                concentration=concentration,
                                                pdi=pdi, wavelen=wavelen, 
-                                               n_matrix=n_sample, k=k, distance=thickness) 
-    
+                                               n_matrix=n_sample, k=k, distance=distance) 
+
     # integrate the differential cross sections to get the total cross section    
-    if np.abs(n_sample.imag.magnitude) > 0.: 
-        # we calculate the detected and total cross sections using the exact
-        # Mie solutions in the far-field because the phase function using the 
-        # exact solutions in the far-field yields the same results as when 
-        # using the far-field Mie solutions. To calculate the parameters in the
-        # far field, we set the distance = thickness of the sample.
-        cscat = mie.integrate_intensity_complex_medium(diff_cs_detected[0]*transmission[0], 
+    if np.abs(n_sample.imag.magnitude) > 0.:  
+        if form_type=='polydisperse' and len(concentration)>1:
+            # When the system is binary and absorbing, we integrate the 
+            # polydisperse differential cross section at the surface of each
+            # component (meaning at a distance of each mean radius). Then we
+            # do a number average the total cross sections. 
+            cscat1 = mie.integrate_intensity_complex_medium(diff_cs_detected[0]*transmission[0], 
                                                        diff_cs_detected[1]*transmission[1], 
-                                                       thickness, angles, k,
+                                                       distance[0], angles, k,
                                                        phi_min=Quantity(phi_min, 'rad'), 
                                                        phi_max=Quantity(phi_max, 'rad'))      
-        cscat_detected = cscat[0]    
-        cscat_detected_par = cscat[1]   
-        cscat_detected_perp = cscat[2]                                                
-        
-        cscat_total = mie.integrate_intensity_complex_medium(diff_cs_total[0], 
+            cscat2 = mie.integrate_intensity_complex_medium(diff_cs_detected[0]*transmission[0], 
+                                                       diff_cs_detected[1]*transmission[1], 
+                                                       distance[1], angles, k,
+                                                       phi_min=Quantity(phi_min, 'rad'), 
+                                                       phi_max=Quantity(phi_max, 'rad'))              
+            cscat_detected1 = cscat1[0]    
+            cscat_detected_par1 = cscat1[1]   
+            cscat_detected_perp1 = cscat1[2]                                                
+            cscat_detected2 = cscat2[0]    
+            cscat_detected_par2 = cscat2[1]   
+            cscat_detected_perp2 = cscat2[2]   
+            
+            cscat_detected = cscat_detected1 * concentration[0] + cscat_detected2 * concentration[1]
+            cscat_detected_par = cscat_detected_par1 * concentration[0] + cscat_detected_par2 * concentration[1]
+            cscat_detected_perp = cscat_detected_perp1 * concentration[0] + cscat_detected_perp2 * concentration[1]
+
+            cscat_total1 = mie.integrate_intensity_complex_medium(diff_cs_total[0], 
                                                              diff_cs_total[1], 
-                                                             thickness, angles_tot, k)[0]  
-                                                             
-        # Calculate the differential and total scattering cross sections at the 
-        # surface of the particle for the asymmetry parameter and transport
-        # length        
-        diff_cs_total_surf = differential_cross_section(m, x, angles_tot, volume_fraction,
-                                                        structure_type=structure_type, 
-                                                        form_type=form_type,
-                                                        diameters=mean_diameters,
-                                                        concentration=concentration,
-                                                        pdi=pdi, wavelen=wavelen, 
-                                                        n_matrix=n_sample, k=k, 
-                                                        distance=mean_diameters.max()/2) 
-        
-        cscat_total_surf = mie.integrate_intensity_complex_medium(diff_cs_total_surf[0], 
-                                                                  diff_cs_total_surf[1], 
-                                                                  mean_diameters.max()/2, 
-                                                                  angles_tot, k)[0]                                      
-        
-        factor = np.cos(angles_tot)
-        asymmetry_unpolarized = mie.integrate_intensity_complex_medium(diff_cs_total_surf[0]*factor, 
-                                                                       diff_cs_total_surf[1]*factor, 
-                                                                       mean_diameters.max()/2,
+                                                             distance[0], angles_tot, k)[0]  
+            cscat_total2 = mie.integrate_intensity_complex_medium(diff_cs_total[0], 
+                                                             diff_cs_total[1], 
+                                                             distance[1], angles_tot, k)[0]  
+            cscat_total = cscat_total1 * concentration[0] + cscat_total2 * concentration[1]
+
+            # Similarly, we calculate the asymmetry parameter integrating at 
+            # the surface of each mean component of the binary mixture and
+            # then average 
+            factor = np.cos(angles_tot)
+            asymmetry_unpolarized1 = mie.integrate_intensity_complex_medium(diff_cs_total[0]*factor, 
+                                                                       diff_cs_total[1]*factor, 
+                                                                       distance[0],
                                                                        angles_tot, k)[0]  
-        asymmetry_parameter = asymmetry_unpolarized/cscat_total_surf
+            asymmetry_unpolarized2 = mie.integrate_intensity_complex_medium(diff_cs_total[0]*factor, 
+                                                                       diff_cs_total[1]*factor, 
+                                                                       distance[1], 
+                                                                       angles_tot, k)[0]  
+            asymmetry_unpolarized = asymmetry_unpolarized1 * concentration[0] + asymmetry_unpolarized2 * concentration[1]  
+
+        else:
+            # We calculate the detected and total cross sections using the full
+            # Mie solutions in the with the asymptotic form of the spherical 
+            # Hankel functions (see mie.diff_scat_intensity_complex_medium()). 
+            # By doing so, we ignore near-field effects but still include the 
+            # complex k into the Mie solutions. Since the cross sections then
+            # decay over distance, we integrate them at the surface of the particle.
+            # The decay through the sample is accounted for later with Beer-
+            # Lambert's law.       
+            cscat = mie.integrate_intensity_complex_medium(diff_cs_detected[0]*transmission[0], 
+                                                       diff_cs_detected[1]*transmission[1], 
+                                                       distance, angles, k,
+                                                       phi_min=Quantity(phi_min, 'rad'), 
+                                                       phi_max=Quantity(phi_max, 'rad'))      
+            cscat_detected = cscat[0]    
+            cscat_detected_par = cscat[1]   
+            cscat_detected_perp = cscat[2]                                                
+        
+            cscat_total = mie.integrate_intensity_complex_medium(diff_cs_total[0], 
+                                                             diff_cs_total[1], 
+                                                             distance, angles_tot, k)[0]  
+            asym_factor = np.cos(angles_tot)
+            asymmetry_unpolarized = mie.integrate_intensity_complex_medium(diff_cs_total[0]*asym_factor, 
+                                                                       diff_cs_total[1]*asym_factor, 
+                                                                       distance,
+                                                                       angles_tot, k)[0]                                               
+        asymmetry_parameter = asymmetry_unpolarized/cscat_total
+
         
         # Calculate the transport length for unpolarized light (see eq. 5 of 
         # Kaplan, Dinsmore, Yodh, Pine, PRE 50(6): 4827, 1994)
-        transport_length = 1/(1.0-asymmetry_parameter)/rho/cscat_total_surf  # TODO is this cscat or cext_tot?
-    
+        transport_length = 1/(1.0-asymmetry_parameter)/rho/cscat_total  # TODO is this cscat or cext_tot?
+        
     # if there is no absorption in the system
     else:
         cscat_detected_par = _integrate_cross_section(diff_cs_detected[0],
@@ -492,7 +529,7 @@ def differential_cross_section(m, x, angles, volume_fraction,
                                                n_matrix, k=k, distance=distance)
         f_par = form_factor[0]  
         f_perp = form_factor[1]
-        
+
     elif form_type is None:
         f_par = 1
         f_perp = 1
@@ -525,8 +562,7 @@ def differential_cross_section(m, x, angles, volume_fraction,
             q = qd / diameters[0]  # I think it's okay to divide by the first 
                                    # radius because it cancels out the radius dependence from qd
             s = structure.factor_poly(q, volume_fraction, diameters, 
-                                      concentration, pdi)
-                                 
+                                      concentration, pdi)             
         else: 
             raise ValueError('structure factor type not recognized!')
             
@@ -629,13 +665,21 @@ def polydisperse_form_factor(m, angles, diameters, concentration, pdi, wavelen,
                 distance_array = np.resize(distance, len(np.atleast_1d(diameters)))
                 form_factor = mie.diff_scat_intensity_complex_medium(m, x_poly[s], 
                                                                      Quantity(angles_array[s], angles.units),
-                                                                     k*Quantity(distance_array[d], distance.units))          
-            
+                                                                     k*Quantity(distance_array[d], distance.units)) 
+                # it might seem reasonable to calculate the form factor of each 
+                # individual radius in the Schulz distribution (meaning that we 
+                # could use diameter_range[s] instead of distance_array[d]), but 
+                # this doesn't lead to reasonable results because we later integrate 
+                # the diff cross section at the mean radii, not at each of the 
+                # radii of the distribution. So we need to be consistent with the  
+                # distances we use for the integrand and the integral. For now, 
+                # we use the mean radii. 
             else:
                 form_factor = mie.calc_ang_dist(m, x_poly[s], Quantity(angles_array[s], angles.units))
+            
             form_factor_par[:,s] = form_factor[0]
             form_factor_perp[:,s] = form_factor[1]
-            
+  
         # multiply the form factors by the Schulz distribution 
         integrand_par = form_factor_par * distr_array
         integrand_perp = form_factor_perp * distr_array

@@ -1773,7 +1773,7 @@ def initialize_sphere(nevents, ntraj, n_medium, n_sample, radius, seed=None,
 
 def calc_scat(radius, n_particle, n_sample, volume_fraction, wavelen,
               radius2=None, concentration=None, pdi=None, polydisperse=False,
-              mie_theory=False, fine_roughness=0.):
+              mie_theory=False, fine_roughness=0., n_matrix=None):
     """
     Calculates the phase function and scattering coefficient from either the
     single scattering model or Mie theory. Calculates the absorption coefficient
@@ -1825,7 +1825,14 @@ def calc_scat(radius, n_particle, n_sample, volume_fraction, wavelen,
         hit fine surface roughness (e.g. will "see" a Mie scatterer first). The 
         rest of the light will see a smooth surface, which could be flat or 
         have coarse roughness (long in the lengthscale of light). 
-    
+    n_matrix : float (structcol.Quantity [dimensionless] or 
+        structcol.refractive_index object)
+        Refractive index of the matrix. It must be specified when the fine
+        roughness is > 0. When there is fine roughness, we assume that light  
+        goes from the index of the matrix to the index of the scatterer. Thus 
+        we assume that fine roughness particles are not embedded in an
+        effective medium.  
+        
     Returns
     -------
     p : array_like (structcol.Quantity [dimensionless])
@@ -1949,17 +1956,19 @@ def calc_scat(radius, n_particle, n_sample, volume_fraction, wavelen,
     mu_abs = mu_abs.to('1/um')
     
     # if there is fine surface roughness, also calculate and return the scatt 
-    # coeff from Mie theory
+    # coeff from Mie theory. We assume that fine roughness particles are in the 
+    # matrix and not in the effective sample medium. 
     if fine_roughness > 0.:
-        #n_matrix = sc.Quantity(1., '')
-        #m = index_ratio(n_particle, n_matrix)
-        #x = size_parameter(wavelen, n_matrix, radius)
-        #k = 2 * np.pi * n_matrix / wavelen  
+        if n_matrix is None:
+            raise ValueError('need to specify n_matrix if fine_roughness > 0')
+        m = index_ratio(n_particle, n_matrix)
+        x = size_parameter(wavelen, n_matrix, radius)
+        k = 2 * np.pi * n_matrix / wavelen  
         _, _, _, cscat_total_mie = phase_function(m, x, angles, volume_fraction, 
                                                   k, number_density, wavelen=wavelen, 
                                                   diameters=mean_diameters, 
                                                   concentration=concentration, 
-                                                  pdi=pdi, n_sample=n_sample,
+                                                  pdi=pdi, n_sample=n_matrix,
                                                   form_type=form_type,
                                                   structure_type=structure_type,
                                                   mie_theory=True)
@@ -2052,10 +2061,14 @@ def phase_function(m, x, angles, volume_fraction, k, number_density,
                                              pdi=pdi, wavelen=wavelen, 
                                              n_matrix=n_sample, k=k, 
                                              distance=distance)
-                                       
+                                      
     # Integrate the differential cross section to get the total cross section
     if np.abs(k.imag.magnitude) > 0.:      
         if form_type=='polydisperse' and len(concentration)>1:
+            # When the system is binary and absorbing, we integrate the 
+            # polydisperse differential cross section at the surface of each
+            # component (meaning at a distance of each mean radius). Then we
+            # do a number average the total cross sections. 
             cscat_total1, cscat_total_par1, cscat_total_perp1, _, _ = \
                 mie.integrate_intensity_complex_medium(diff_cscat_par, 
                                                        diff_cscat_perp, 
@@ -2079,7 +2092,13 @@ def phase_function(m, x, angles, volume_fraction, k, number_density,
         # section behaves weirdly. To make sure we use the far-field 
         # solutions, set k = None. This is okay because we only care about the 
         # distribution of angles (meaning the shape of the phase function), not
-        # the magnitudes of the probabilities.                                            
+        # the magnitudes of the probabilities. Note: after refactoring 
+        # pymie we could get the same result passing on the complex k to 
+        # model.differential_cross_section() and just ensuring that 
+        # near_fields=False in mie.diff_scat_intensity_complex_medium(), 
+        # which is the default. The result is the same either way as shown in 
+        # test_phase_function_absorbing_medium() in test_montecarlo.py, so we 
+        # leave the original implementation for now. 
         diff_cscat_par_ff, diff_cscat_perp_ff = \
             model.differential_cross_section(m, x, angles, volume_fraction,
                                              structure_type=structure_type,
@@ -2110,8 +2129,6 @@ def phase_function(m, x, angles, volume_fraction, k, number_density,
         p_par = diff_cscat_par/(ksquared * 2 * cscat_total_par)
         p_perp = diff_cscat_perp/(ksquared * 2 * cscat_total_perp)
         
-#        diff_cscat_par2 = diff_cscat_par / (np.abs(k)**2)
-#        diff_cscat_perp2 = diff_cscat_perp / (np.abs(k)**2)
         
     return(p, p_par, p_perp, cscat_total)
 
