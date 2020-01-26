@@ -272,13 +272,18 @@ def reflection(n_particle, n_matrix, n_medium, wavelen, radius, volume_fraction,
     azi_angle_range = Quantity(phi_max-phi_min,'rad')
     azi_angle_range_tot = Quantity(2*np.pi,'rad')
     
-    transmission = fresnel_transmission(n_sample, n_medium, np.pi-angles)
-    
-    # calculate the absorption cross section
-    cabs_total = absorption_cross_section(form_type, m, mean_diameters, n_sample, 
-                                          x, wavelen, n_particle,
-                                          concentration=concentration, pdi=pdi)                                                                                                               
+    transmission = fresnel_transmission(n_sample, n_medium, np.pi-angles)                                                                                                         
      
+    # calculate the absorption cross section
+    if np.abs(n_sample.imag.magnitude) > 0.0:
+       # The absorption coefficient can be calculated from the imaginary 
+        # component of the samples's refractive index
+        mu_abs = 4*np.pi*n_sample.imag/wavelen
+        cabs_total = mu_abs / rho
+    else:
+        cross_sections = mie.calc_cross_sections(m, x, wavelen/n_sample)  
+        cabs_total = cross_sections[2]                                               
+
     # calculate the differential cross section in the detected range of angles  
     # and in the total angles. We calculate it at a distance = radius when 
     # there is absorption in the system, making sure that near_fields are False
@@ -304,7 +309,7 @@ def reflection(n_particle, n_matrix, n_medium, wavelen, radius, volume_fraction,
                                                concentration=concentration,
                                                pdi=pdi, wavelen=wavelen, 
                                                n_matrix=n_sample, k=k, distance=distance) 
-
+                                              
     # integrate the differential cross sections to get the total cross section    
     if np.abs(n_sample.imag.magnitude) > 0.:  
         if form_type=='polydisperse' and len(concentration)>1:
@@ -357,7 +362,7 @@ def reflection(n_particle, n_matrix, n_medium, wavelen, radius, volume_fraction,
 
         else:
             # We calculate the detected and total cross sections using the full
-            # Mie solutions in the with the asymptotic form of the spherical 
+            # Mie solutions with the asymptotic form of the spherical 
             # Hankel functions (see mie.diff_scat_intensity_complex_medium()). 
             # By doing so, we ignore near-field effects but still include the 
             # complex k into the Mie solutions. Since the cross sections then
@@ -422,7 +427,7 @@ def reflection(n_particle, n_matrix, n_medium, wavelen, radius, volume_fraction,
         factor = 1.0
     else:
         # use Beer-Lambert law to account for attenuation
-        factor = (1.0 - np.exp(-rho*cext_total*thickness)) * cscat_total/cext_total               
+        factor = ((1.0 - np.exp(-rho*cext_total*thickness)) * cscat_total/cext_total).to('')
 
     # one critical difference from Sofia's original code is that this code
     # calculates the reflected intensity in each polarization channel
@@ -699,8 +704,9 @@ def polydisperse_form_factor(m, angles, diameters, concentration, pdi, wavelen,
 
 def absorption_cross_section(form_type, m, diameters, n_matrix, x, wavelen, n_particle, concentration=None, pdi=None):
     """   
-    Calculate the absorption cross section. 
-    
+    Calculate the absorption cross section of a particle. 
+    Note: this function is currently NOT used anywhere in this package. 
+        
     Parameters
     ----------
     form_type: str or None

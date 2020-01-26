@@ -565,7 +565,7 @@ def test_reflection_polydispersity():
     lstar5_before = 0.011593280877304636
     lstar6_before = 0.011593280876210265 
     
-    assert_equal(refl5_before, refl5)
+    assert_almost_equal(refl5_before, refl5.magnitude, decimal=14)
     assert_almost_equal(refl6_before, refl6.magnitude, decimal=14)
     assert_equal(g5_before, g5)
     assert_equal(g6_before, g6)
@@ -692,17 +692,19 @@ def test_reflection_polydispersity_with_absorption():
     assert_array_almost_equal(g3, g4, decimal=4)
     assert_array_almost_equal(lstar3.to('mm'), lstar4.to('mm'), decimal=4)
 
-    # Outputs before refactoring structcol
-    refl3_before = 0.6311022445010561
-    refl4_before = 0.6311022434374303
+    # Outputs before refactoring structcol. Changed a couple values after 
+    # re-implementing absorption into model.reflection() (now uses n_sample.imag 
+    # to calculate the absorption cross section, in the same way as montecarlo.py)
+    refl3_before = 0.629949154268635 #0.6311022445010561 #changed with new absorption implementation
+    refl4_before = 0.629949153206364 #0.6311022434374303 #changed with new absorption implementation
     g3_before = -0.6356307606571816 #-27901.50120849103
     g4_before = -0.6356307601051542 #-27901.50118425936
     lstar3_before = 5.7241468935761515e-05 #8.8037552221780592e-09 #1.4399291088853016e-08
     lstar4_before = 5.72414689861482e-05 #8.8037552299275471e-09 #1.4399291096668534e-08
   
-    assert_equal(refl3_before, refl3.magnitude)
-    assert_equal(refl4_before, refl4.magnitude)
-    assert_equal(g3_before, g3.magnitude)
+    assert_almost_equal(refl3_before, refl3.magnitude, decimal=15)
+    assert_almost_equal(refl4_before, refl4.magnitude, decimal=15)
+    assert_almost_equal(g3_before, g3.magnitude, decimal=15)
     assert_almost_equal(g4_before, g4.magnitude, decimal=15)
     assert_equal(lstar3_before, lstar3.to('mm').magnitude)
     assert_equal(lstar4_before, lstar4.to('mm').magnitude)
