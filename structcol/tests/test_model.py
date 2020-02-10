@@ -594,9 +594,9 @@ def test_reflection_polydispersity():
                                                structure_type='polydisperse',
                                                form_type='polydisperse')
     
-    assert_array_almost_equal(refl7, refl8)
-    assert_array_almost_equal(g7, g8)
-    assert_array_almost_equal(lstar7.to('mm'), lstar8.to('mm'))    
+    assert_array_almost_equal(refl7, refl8, decimal=16)
+    assert_array_almost_equal(g7, g8, decimal=15)
+    assert_array_almost_equal(lstar7.to('mm'), lstar8.to('mm'), decimal=16)    
     
     # test that the reflectance is the same regardless of the order in which
     # the radii are specified
@@ -619,9 +619,9 @@ def test_reflection_polydispersity():
                                                structure_type='polydisperse',
                                                form_type='polydisperse')
     
-    assert_array_almost_equal(refl9, refl10)
-    assert_array_almost_equal(g9, g10)
-    assert_array_almost_equal(lstar9.to('mm'), lstar10.to('mm'))   
+    assert_array_almost_equal(refl9, refl10, decimal=14)
+    assert_array_almost_equal(g9, g10, decimal=14)
+    assert_array_almost_equal(lstar9.to('mm'), lstar10.to('mm'), decimal=16)   
     
     
 def test_reflection_polydispersity_with_absorption():
@@ -651,7 +651,7 @@ def test_reflection_polydispersity_with_absorption():
                                                form_type='polydisperse',
                                                thickness=thickness)
     
-    assert_array_almost_equal(refl, refl2, decimal=6)
+    assert_array_almost_equal(refl, refl2, decimal=9) 
     assert_array_almost_equal(g, g2, decimal=9)
     assert_array_almost_equal(lstar.to('mm'), lstar2.to('mm'), decimal=9)
 
@@ -821,6 +821,8 @@ def test_g_transport_length():
     thickness1 = Quantity('10 um')
     thickness2 = Quantity('100 um')
     
+    # test that the reflectance using only the form factor is the same using
+    # the polydisperse formula vs using Mie in the limit of monodispersity
     _, _, _, g, lstar = model.reflection(n_particle, n_matrix, n_medium, 
                                             wavelength, radius, volume_fraction, 
                                             thickness=thickness1)

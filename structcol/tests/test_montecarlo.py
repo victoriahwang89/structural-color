@@ -63,7 +63,7 @@ def test_calc_refl_trans():
     small_n = 1
     large_n = 2
 
-    # test absoprtion and stuck without fresnel
+    # test absorption and stuck without fresnel
     z_pos = np.array([[0,0,0,0],[1,1,1,1],[-1,11,2,11],[-2,12,4,12]])
     ntrajectories = z_pos.shape[1]
     kz = np.array([[1,1,1,1],[-1,1,1,1],[-1,1,1,1]])
@@ -213,8 +213,8 @@ def test_reflection_core_shell():
                                  n_particle_cs_abs, n_sample_cs_abs, n_medium, 
                                  volume_fraction, wavelen, seed)
 
-    assert_almost_equal(R_abs, R_cs_abs, decimal=3)
-    assert_almost_equal(T_abs, T_cs_abs, decimal=3)
+    assert_almost_equal(R_abs, R_cs_abs, decimal=6)
+    assert_almost_equal(T_abs, T_cs_abs, decimal=6) 
 
     # Outputs before refactoring structcol
     R_abs_before = 0.3956821177047554 #0.50534237684703909
@@ -244,8 +244,8 @@ def test_reflection_core_shell():
                                  n_particle_cs_abs, n_sample_cs_abs, n_medium, 
                                  volume_fraction, wavelen, seed)
 
-    assert_almost_equal(R_abs, R_cs_abs, decimal=3)
-    assert_almost_equal(T_abs, T_cs_abs, decimal=3)
+    assert_almost_equal(R_abs, R_cs_abs, decimal=6) 
+    assert_almost_equal(T_abs, T_cs_abs, decimal=6)
 
     # Outputs before refactoring structcol
     R_abs_before = 0.27087005070007175 #0.37384878890851575
@@ -684,7 +684,8 @@ def test_phase_function_absorbing_medium():
 def calc_montecarlo(nevents, ntrajectories, radius, n_particle, n_sample, 
                     n_medium, volume_fraction, wavelen, seed, radius2=None, 
                     concentration=None, pdi=None, polydisperse=False, 
-                    fine_roughness=0., coarse_roughness=0., n_matrix=None):
+                    fine_roughness=0., coarse_roughness=0., n_matrix=None, 
+                    incidence_theta_min=0., incidence_theta_max=0.):
                         
     # Function to run montecarlo for the tests
     p, mu_scat, mu_abs = mc.calc_scat(radius, n_particle, n_sample, 
@@ -698,11 +699,14 @@ def calc_montecarlo(nevents, ntrajectories, radius, n_particle, n_sample,
                                                                n_medium, 
                                                                n_sample, 
                                                                seed=seed, 
-                                                               incidence_angle=0.,
-                                                               coarse_roughness=coarse_roughness)
+                                                               coarse_roughness=coarse_roughness,
+                                                               incidence_theta_min=incidence_theta_min,
+                                                               incidence_theta_max=incidence_theta_max)
     else:                                                                    
         r0, k0, W0 = mc.initialize(nevents, ntrajectories, n_medium, n_sample, 
-                                   seed=seed, incidence_angle = 0.)
+                                   seed=seed, 
+                                   incidence_theta_min=incidence_theta_min,
+                                   incidence_theta_max=incidence_theta_max)
         kz0_rotated = None
         kz0_reflected = None
         

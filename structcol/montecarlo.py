@@ -1429,14 +1429,24 @@ def P_theta_a(theta_a, r):
 
     return term1 * term2
     
-def initialize(nevents, ntraj, n_medium, n_sample, seed=None, incidence_angle=0., 
+def initialize(nevents, ntraj, n_medium, n_sample, seed=None, 
+               incidence_theta_min=sc.Quantity(0.,'rad'), 
+               incidence_theta_max=sc.Quantity(0.,'rad'), 
+               incidence_theta_data=None, 
+               incidence_phi_min=sc.Quantity(0.,'rad'), 
+               incidence_phi_max=sc.Quantity(2*np.pi,'rad'), 
+               incidence_phi_data=None,
                 spot_size=sc.Quantity('1 um'), coarse_roughness=0.):
     """
     Sets the trajectories' initial conditions (position, direction, and weight).
     The initial positions are determined randomly in the x-y plane (the initial
-    z-position is at z = 0). The default initial propagation direction is set to
-    be kz = 1, meaning that the photon packets point straight down in z. The 
-    initial weight is currently determined to be a value of choice.
+    z-position is at z = 0). The initial weight is currently determined to be a 
+    value of choice.
+    
+    If incidence_theta_min and incidence_theta_max are both set to 0, the 
+    initial propagation direction is set to be 1 at z, meaning that the photon 
+    packets point straight down in z. The initial directions are corrected for 
+    refraction for any incidence angle.
     
     Parameters
     ----------
@@ -1453,10 +1463,30 @@ def initialize(nevents, ntraj, n_medium, n_sample, seed=None, incidence_angle=0.
     seed : int or None
         If seed is int, the simulation results will be reproducible. If seed is
         None, the simulation results are actually random.
-    incidence_angle : float
+    incidence_theta_min: float (structcol.Quantity [angle])
+        Minimum value for theta when it incides onto the sample.
+        Should be >= 0 and < pi/2.
+    incidence_theta_max: float (structcol.Quantity [angle])
         Maximum value for theta when it incides onto the sample.
-        Should be between 0 and pi/2.
-    spot_size : float (structcol.Quantity [length])
+        Should be >= 0 and < pi/2.
+    incidence_theta_data: array (structcol.Quantity [angle]) (optional)
+        Array of values for the incident theta for each trajectory. Length of 
+        the array must therefore be the same as number of trajectories. If
+        None, the code will randomly sample theta angles from a uniform 
+        distribution between incidence_theta_min and incidence_theta_max. If
+        user does not specify units, values must be in radians. 
+    incidence_phi_min: float (structcol.Quantity [angle])
+        Minimum value for phi when it incides onto the sample.
+        Should be >= 0 and <= pi.
+    incidence_phi_max: float (structcol.Quantity [angle])
+        Maximum value for phi when it incides onto the sample.
+        Should be >= 0 and <= pi.
+    incidence_phi_data: array (structcol.Quantity [angle]) (optional)
+        Array of values for the incident phi for each trajectory. Length of 
+        the array must therefore be the same as number of trajectories. If
+        None, the code will randomly sample phi angles from a uniform 
+        distribution between incidence_phi_min and incidence_phi_max.  If
+        user does not specify units, values must be in radians.     spot_size : float (structcol.Quantity [length])
         Spot size of incident light. The incident spot is assumed to be a
         square. The spot size parameter is the value of the square's side. 
     coarse_roughness : float (can be structcol.Quantity [dimensionless])
@@ -1540,17 +1570,27 @@ def initialize(nevents, ntraj, n_medium, n_sample, seed=None, incidence_angle=0.
     # Create an empty array of the initial direction cosines of the right size
     k0 = np.zeros((3, nevents, ntraj))
 
-    # Random sampling of azimuthal angle phi from uniform distribution [0 -
-    # 2pi] for the first scattering event
-    rand_phi = random((1,ntraj))
-    phi = 2*np.pi*rand_phi
+    # initialize the incident angles theta and phi. The user can input 
+    # data or sample randomly from a uniform distribution between a min and 
+    # a max incident angles. 
+    if incidence_theta_data is not None: 
+        if len(incidence_theta_data) != ntraj:
+            raise ValueError('length of incidence_theta_data must be equal\
+            to number of trajectories')
+        theta = incidence_theta_data
+    else: 
+        theta = np.random.uniform(incidence_theta_min, incidence_theta_max, ntraj)
+
+    if incidence_phi_data is not None: 
+        if len(incidence_phi_data) != ntraj:
+            raise ValueError('length of incidence_phi_data must be equal\
+            to number of trajectories')
+        phi = incidence_phi_data
+    else: 
+        phi = np.random.uniform(incidence_phi_min, incidence_phi_max, ntraj)
+
     sinphi = np.sin(phi)
     cosphi = np.cos(phi)
-
-    # Random sampling of scattering angle theta from uniform distribution [0 -
-    # pi] for the first scattering event
-    rand_theta = random((1,ntraj))
-    theta = rand_theta * incidence_angle 
     sintheta = np.sin(theta)
     costheta = np.cos(theta)    
     
@@ -1630,6 +1670,9 @@ def initialize_sphere(nevents, ntraj, n_medium, n_sample, radius, seed=None,
     z-positions are confined to the surface of a sphere. The initial propagation
     direction is set to be 1 at z, meaning that the photon packets point 
     straight down in z.
+    
+    **notes:
+    - for sphere boundary, incidence angle currently must be 0
     
     Parameters
     ----------
@@ -1985,7 +2028,7 @@ def phase_function(m, x, angles, volume_fraction, k, number_density,
                    mie_theory=False):
     """
     Calculates the phase function (the phase function is the same for absorbing 
-    and non-absorbing systems)
+    and non-absorbing systems).
     
     Parameters:
     ----------
