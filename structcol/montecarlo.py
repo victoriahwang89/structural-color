@@ -836,8 +836,7 @@ def refraction(angles, n_before, n_after):
 
 def calc_refl_trans(trajectories, z_low, cutoff, n_medium, n_sample,
                     n_front=None, n_back=None, detection_angle=np.pi/2, 
-                    return_extra=False, kz0_rot=None ,kz0_refl=None, 
-                    fine_roughness=0., n_matrix=None):
+                    return_extra=False, kz0_rot=None ,kz0_refl=None):
     """
     Counts the fraction of reflected and transmitted trajectories after a cutoff.
     Identifies which trajectories are reflected or transmitted, and at which
@@ -880,15 +879,6 @@ def calc_refl_trans(trajectories, z_low, cutoff, n_medium, n_sample,
         z-directions of the Fresnel reflected light after it hits the sample
         surface for the first time. These directions are in the global 
         coordinate system. The array size is (1, ntraj). 
-    fine_roughness : float (structcol.Quantity [dimensionless])
-        Fraction of the sample area that has fine roughness. Should be between 
-        0 and 1. For ex, a value of 0.3 means that 30% of incident light will 
-        hit fine surface roughness (e.g. will "see" a Mie scatterer first). The 
-        rest of the light will see a smooth surface, which could be flat or 
-        have coarse roughness (long in the lengthscale of light).  
-    n_matrix : None or float ((structcol.Quantity [dimensionless] or 
-        structcol.refractive_index object))
-        Refractive index of the matrix. It is required if fine_roughness is > 0.
         
     Returns
     -------
@@ -974,21 +964,9 @@ def calc_refl_trans(trajectories, z_low, cutoff, n_medium, n_sample,
     else: 
         kz0_rot = np.squeeze(kz0_rot)
         init_dir = kz0_rot  
-        
-    # init_dir is reverse-corrected for refraction. = kz before medium/sample interface
-    if fine_roughness > 1. or fine_roughness < 0.:
-        raise ValueError('fine roughness fraction must be between 0 and 1')
-    
-    if fine_roughness > 0. and n_matrix is None:
-        raise ValueError('when there is fine roughness (meaning the first step is from Mie theory), must specify n_matrix')
-
-    # when the first step is from Mie, we assume light travels through the matrix first before it sees the particle.
-    # But user can set n_matrix to be n_medium if they think that light will see the particle directly.     
-    ntraj_mie = int(round(ntraj * fine_roughness))
+          
     inc_fraction = np.empty(ntraj)
-    if fine_roughness > 0.:
-        inc_fraction[0:ntraj_mie] = fresnel_pass_frac(np.array([init_dir[0:ntraj_mie]]), np.ones(ntraj_mie), n_medium, n_front, n_matrix)
-    inc_fraction[ntraj_mie:] = fresnel_pass_frac(np.array([init_dir[ntraj_mie:]]), np.ones(ntraj-ntraj_mie), n_medium, n_front, n_sample)
+    inc_fraction = fresnel_pass_frac(np.array([init_dir]), np.ones(ntraj), n_medium, n_front, n_sample)
 
     # calculate outcome weights from all trajectories
     refl_weights = inc_fraction * select_events(weights, refl_indices)  # should these be refl_indices-1 to not overestimate absorption?

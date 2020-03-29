@@ -727,7 +727,6 @@ def calc_montecarlo(nevents, ntrajectories, radius, n_particle, n_sample,
     cutoff = sc.Quantity('50 um')
     
     R, T = mc.calc_refl_trans(trajectories, z_low, cutoff, n_medium, n_sample,
-                              kz0_rot=kz0_rotated, kz0_refl=kz0_reflected,
-                              fine_roughness=fine_roughness, n_matrix=n_matrix)
+                              kz0_rot=kz0_rotated, kz0_refl=kz0_reflected)
                                                         
     return R, T
