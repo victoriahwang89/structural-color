@@ -42,6 +42,7 @@ http://refractiveindex.info (accessed August 14, 2016).
 import numpy as np
 from . import ureg, Quantity  # unit registry and Quantity constructor from pint
 from scipy.optimize import fsolve
+import warnings 
 
 # dictionary of refractive index dispersion formulas. This is used by the 'n'
 # function below; it's outside the function definition so that it doesn't have
@@ -135,10 +136,7 @@ n_dict = {
     # the w/w is a crude hack to make the function output an array when the
     # input is an array
     'vacuum': lambda w: Quantity('1.0')*w/w,
-    
-#------------------------------------------------------------------------------
-    # FROM KEITH
-								
+    								
     # brookite TiO2 from Radhakrishnan. "The Optical Properties of titanium
     # dioxide". Proceedings of the Indian Academy of Sciences-Mathematical Sciences
     #March 1982, 35:117. Note that this is for n_alpha. However, n_alpha is 
@@ -147,17 +145,16 @@ n_dict = {
     # data for rutile TiO2, ordinary ray, 0.43-0.71 micrometers
     'brookite': lambda w: np.sqrt(2.9858 + 2.1036*w*w/(w*w - Quantity('0.287**2 um^2'))-Quantity('0.18 um^-2')*w*w+1.),
 								
-	# anatase TiO2 from Wang et al. Think Solid Films. 405, 2002, 50-54
+    # anatase TiO2 from Wang et al. Think Solid Films. 405, 2002, 50-54
     # measured from 500-1700 nm
-    'anatase': lambda w: 2.1526 +
-                                Quantity('4.1155e-2 um^2')/(w*w)+
-                                Quantity('2.1798e-3 um^4')/(w*w*w*w)
-#------------------------------------------------------------------------------
+    'anatase': lambda w: 2.1526 + Quantity('4.1155e-2 um^2')/(w*w)+
+                                  Quantity('2.1798e-3 um^4')/(w*w*w*w),
 }
 
 @ureg.check(None, '[length]')   # ensures wavelen has units of length
-def n(material, wavelen):
-    """Refractive index of various materials
+def n(material, wavelen, index=None):
+    """
+    Refractive index of various materials.
 
     Parameters
     ----------
@@ -174,26 +171,40 @@ def n(material, wavelen):
     Dispersion formulas from M. N. Polyanskiy. "Refractive index database,"
     http://refractiveindex.info (accessed August 14, 2016).
     """
+    if material == 'data':
+        if index is None:
+            raise KeyError("'data' material requires input of index values.")
+        return index
+        
+    else:
+        if index is not None:
+            warnings.warn("No need to specify the index values. No material except for 'data' uses the index values.")
+        try:
+            return n_dict[material](wavelen)
+        except KeyError:
+            print("Material \""+material+"\" not implemented.  Perhaps a typo?")
+            raise
 
-    try:
-        return n_dict[material](wavelen)
-    except KeyError:
-        print("Material \""+material+"\" not implemented.  Perhaps a typo?")
-        raise
-
-# for the rest of these materials, need to find dispersion relations and
+#------------------------------------------------------------------------------
+# OTHER MATERIALS
+# For the rest of these materials, need to find dispersion relations and
 # implement the functions in the dictionary.
-def n_air(w):
-    return 1.0
-
 def n_silica_colloidal(w):
     return 1.40
 
-def n_water(w):
-    return 1.33
+def n_keratin(w):
+    return 1.532
+
+def n_ptbma(w):
+    # from http://www.sigmaaldrich.com/catalog/product/aldrich/181587?lang=en&region=US
+    return 1.46
+
+#------------------------------------------------------------------------------
+# CARGILLE OILS
 
 def n_cargille(i,series,w):
-    """Refractive index of cargille index-matching oils
+    """
+    Refractive index of cargille index-matching oils
     available at:
     http://www.cargille.com/refractivestandards.shtml
 
@@ -389,12 +400,8 @@ def n_cargille(i,series,w):
         
     return Quantity(n)
 
-def n_keratin(w):
-    return 1.532
-
-def n_ptbma(w):
-    # from http://www.sigmaaldrich.com/catalog/product/aldrich/181587?lang=en&region=US
-    return 1.46
+#------------------------------------------------------------------------------
+# EFFECTIVE INDEX CALCULATION
 
 def n_eff(n_particle, n_matrix, volume_fraction, maxwell_garnett=False):
     """
